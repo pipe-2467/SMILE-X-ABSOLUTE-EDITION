@@ -1,8 +1,8 @@
 name: Smile-X APK Builder
 on:
-  workflow_dispatch: # กดปุ่มสั่ง Build เองได้
+  workflow_dispatch:
   push:
-    branches: [ main ] # รันอัตโนมัติเมื่อมีการอัปเดตโค้ด
+    branches: [ main ]
 
 jobs:
   build:
@@ -17,23 +17,11 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r21d # ใช้เวอร์ชันที่เสถียรสำหรับไฟล์ jni ของนาย
+        uses: nttld/setup-android@v3 # ใช้ตัว Setup ที่ครอบคลุมกว่า
 
-      - name: Build Native Library (JNI)
+      - name: Build APK
         run: |
-          cd SMILE-X-ABSOLUTE-EDITION-main/SmileX-Absolute/jni
-          ndk-build # คอมไพล์ core.cpp เป็นไฟล์ .so
-
-      - name: Build APK with Gradle
-        run: |
+          # เข้าไปในโฟลเดอร์ที่มีไฟล์โปรเจกต์จริงๆ
           cd SMILE-X-ABSOLUTE-EDITION-main/SmileX-Absolute
           chmod +x gradlew
           ./gradlew assembleDebug
-
-      - name: Upload Finished APK
-        uses: actions/upload-artifact@v3
-        with:
-          name: Smile-X-Absolute-Build
-          path: SMILE-X-ABSOLUTE-EDITION-main/SmileX-Absolute/app/build/outputs/apk/debug/*.apk
