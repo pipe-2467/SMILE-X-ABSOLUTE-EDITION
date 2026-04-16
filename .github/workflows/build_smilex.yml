@@ -13,26 +13,23 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 7.5 # บังคับใช้เวอร์ชันนี้ เพื่อให้เจอ Android Plugin
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r21d
-
-      - name: Build with Gradle
+      - name: Build APK
         run: |
-          # เข้าไปที่โฟลเดอร์โปรเจกต์
           cd SmileX-Absolute
+          # สั่งให้ระบบยอมรับสัญญาการใช้งาน SDK ทั้งหมดก่อนรัน
+          yes | sdkmanager --licenses || true
           
-          # สร้างไฟล์สร้าง Wrapper แบบบังคับ (Force)
-          gradle wrapper --gradle-version 7.2
+          # ใช้คำสั่ง build โดยตรงจาก gradle ที่เรา setup ไว้
+          gradle assembleDebug --stacktrace
           
-          # สั่ง Build โดยข้ามการเช็ค Plugin ที่พัง และบังคับให้โหลดใหม่
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
