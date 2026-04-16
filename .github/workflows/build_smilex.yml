@@ -18,14 +18,21 @@ jobs:
         with:
           ndk-version: r21d
 
-      - name: Find and Build
+      - name: Auto-Generate Wrapper and Build
         run: |
-          # สั่งให้ระบบค้นหาว่าไฟล์ gradlew อยู่ที่ไหน แล้วกระโดดเข้าไปตรงนั้น
-          GRADLEW_PATH=$(find . -name gradlew)
-          GRADLE_DIR=$(dirname "$GRADLEW_PATH")
-          cd "$GRADLE_DIR"
+          # หาจุดที่มีไฟล์ build.gradle
+          PROJECT_ROOT=$(find . -name build.gradle -exec dirname {} \;)
+          cd "$PROJECT_ROOT"
           
-          echo "Found project at: $GRADLE_DIR"
+          echo "Building in: $PROJECT_ROOT"
+          
+          # ติดตั้ง gradle ลงในเครื่อง GitHub ชั่วคราวเพื่อสร้าง Wrapper
+          sudo apt-get update && sudo apt-get install gradle -y
+          
+          # สร้างไฟล์ที่หายไป (gradlew และ jar)
+          gradle wrapper
+          
+          # เริ่ม Build APK
           chmod +x gradlew
           ./gradlew assembleDebug
 
