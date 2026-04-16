@@ -1,37 +1,19 @@
-name: Smile-X APK Builder
-on: [push, workflow_dispatch]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Build APK
         run: |
-          # 1. จัดการ License ให้จบ
+          # 1. สร้างโฟลเดอร์ licenses และบังคับเขียนไฟล์ยอมรับเงื่อนไข NDK ลงไปตรงๆ
           mkdir -p "$ANDROID_SDK_ROOT/licenses"
-          echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb7430130233f9967321\n24333f8a63b6825ea9c5573f4353d75cbb0ad30a" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
+          echo -e "8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb7430130233f9967321\n24333f8a63b6825ea9c5573f4353d75cbb0ad30a\n84831b9409646a918e30573bab4c9c91346d8abd\n5046632292f0b5707351fd997b420c9517135838\n21333f8a63b6825ea9c5573f4353d75cbb0ad30a" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
           
-          # 2. ดาวน์โหลดและตั้งค่า Gradle 7.5 แบบ Local (ไม่ใช้ของระบบ)
-          wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
-          unzip -q gradle-7.5-bin.zip
+          # 2. บังคับยอมรับ Preview License (เผื่อไว้)
+          echo -e "84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_SDK_ROOT/licenses/android-sdk-preview-license"
+
+          # 3. ติดตั้ง NDK เวอร์ชั่นที่ต้องการก่อนเริ่ม Build
+          yes | sdkmanager "ndk;21.4.7075529"
+
+          # 4. ดาวน์โหลด Gradle 7.5 (ถ้ายังไม่มี) และรัน Build
+          if [ ! -d "gradle-7.5" ]; then
+            wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
+            unzip -q gradle-7.5-bin.zip
+          fi
           
-          # 3. รันโดยระบุ Path ไปที่ Gradle 7.5 โดยตรง (ห้ามมันไปใช้ตัวอื่น)
-          # และใช้คำสั่ง --no-daemon เพื่อป้องกันมันไปปลุก Gradle ตัวอื่นขึ้นมา
           ./gradle-7.5/bin/gradle :SmileX-Absolute:assembleDebug --no-daemon --stacktrace
-          
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: Smile-X-Absolute-Build
-          path: "**/build/outputs/apk/debug/*.apk"
