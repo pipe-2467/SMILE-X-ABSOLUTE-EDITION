@@ -28,17 +28,13 @@ public class FloatingService extends Service {
     public void onCreate() {
         super.onCreate();
         
-        // --- 1. ป้องกันแอปหาย (Foreground Service) ---
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel("smilex_id", "Smile-X Running", NotificationManager.IMPORTANCE_LOW);
-            getSystemService(NotificationManager.class).createNotificationChannel(channel);
-            Notification notification = new NotificationCompat.Builder(this, "smilex_id").setContentTitle("Smile-X").setContentText("Executor is active").build();
-            startForeground(1, notification);
-        }
+        // 1. ทำให้เป็น Foreground Service เพื่อไม่ให้ GUI หายเวลาเล่นเกม
+        initForeground();
 
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         v = LayoutInflater.from(this).inflate(R.layout.floating_menu, null);
 
+        // 2. ตั้งค่า Layout Params (แก้ปัญหาคีย์บอร์ดไม่ขึ้น)
         final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -51,7 +47,7 @@ public class FloatingService extends Service {
         params.x = 100;
         params.y = 100;
 
-        // --- 2. ระบบลาก (Drag) ที่ลื่นขึ้น ---
+        // 3. ระบบลากเมนู (Drag and Move)
         v.setOnTouchListener(new View.OnTouchListener() {
             private int lastX, lastY;
             private float touchX, touchY;
@@ -79,14 +75,12 @@ public class FloatingService extends Service {
             @Override
             public void onClick(View view) {
                 String code = input.getText().toString();
-                // ล้างช่องรับข้อมูลทันทีเพื่อลดภาระ RAM (แก้ปัญหาต้องล้าง Cache)
-                // input.setText(""); // เปิดบรรทัดนี้ถ้าหัวหน้าอยากให้รันเสร็จแล้วสคริปต์หายไป
-                
                 try {
+                    // รันสคริปต์
                     NativeBridge.runBytecode(("loadstring([[" + code + "]])()").getBytes());
-                } catch (Exception e) {
-                    // ถ้าพังก็แค่ Log ไว้ ไม่ให้แอป Crash จนหายไป
-                    e.printStackTrace();
+                } finally {
+                    // 4. ล้าง RAM ทันทีที่กด Execute (แก้ปัญหารวน)
+                    System.gc();
                 }
             }
         });
@@ -94,16 +88,36 @@ public class FloatingService extends Service {
         wm.addView(v, params);
     }
 
+    private void initForeground() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel("smilex", "SmileX Active", NotificationManager.IMPORTANCE_MIN);
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null) nm.createNotificationChannel(channel);
+            
+            Notification notification = new NotificationCompat.Builder(this, "smilex")
+                    .setContentTitle("Smile-X Absolute")
+                    .setContentText("Executor is running...")
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .build();
+            startForeground(1, notification);
+        }
+    }
+
+    // 5. ระบบช่วยล้าง Cache อัตโนมัติเมื่อ Android แจ้งเตือน RAM เต็ม
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        System.gc(); 
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // บังคับให้ Service เริ่มใหม่เสมอถ้าโดนฆ่า แต่ห้ามหายไปเฉยๆ
-        return START_STICKY;
+        return START_STICKY; // บังคับให้เมนูกลับมาถ้าโดนระบบปิด
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        // ล้างทุกอย่างให้เกลี้ยงก่อนปิด (ป้องกัน Memory Leak)
         if (v != null) {
             wm.removeView(v);
             v = null;
