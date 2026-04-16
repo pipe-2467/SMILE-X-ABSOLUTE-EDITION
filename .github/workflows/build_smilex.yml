@@ -23,12 +23,11 @@ jobs:
 
       - name: Build APK
         run: |
-          cd SmileX-Absolute
           # สั่งให้ระบบยอมรับสัญญาการใช้งาน SDK ทั้งหมดก่อนรัน
           yes | sdkmanager --licenses || true
           
-          # ใช้คำสั่ง build โดยตรงจาก gradle ที่เรา setup ไว้
-          gradle assembleDebug --stacktrace
+          # ใช้คำสั่ง build โดยรัน gradle จากรูทโดยระบุ subproject
+          gradle :SmileX-Absolute:assembleDebug --stacktrace
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
