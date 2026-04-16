@@ -9,7 +9,7 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.Button;
 
-// *** เพิ่มบรรทัดนี้เข้าไปครับ ***
+// บรรทัดนี้ห้ามหายเด็ดขาดครับ เพื่อให้รู้จัก R.layout และ R.id
 import com.smilex.absolute.R; 
 
 public class FloatingService extends Service {
@@ -24,10 +24,10 @@ public class FloatingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        // ตอนนี้มันจะรู้จัก R.layout.floating_menu แล้ว
-        v = LayoutInflater.from(this).inflate(R.layout.floating_menu, null);
         
-        // และจะรู้จัก R.id.btnRun กับ R.id.editScript ด้วย
+        // ถ้า import R ถูกต้อง บรรทัดนี้จะไม่แดง
+        v = LayoutInflater.from(this).inflate(R.layout.floating_menu, null);
+
         Button runBtn = v.findViewById(R.id.btnRun);
         final EditText input = v.findViewById(R.id.editScript);
 
@@ -37,8 +37,12 @@ public class FloatingService extends Service {
                 String code = input.getText().toString();
                 String payload = "loadstring([[" + code + "]])()";
                 
-                // อย่าลืมเรื่อง NativeBridge ถ้ายังไม่ได้สร้างไฟล์แยกไว้
-                // NativeBridge.runBytecode(payload.getBytes());
+                // ตรวจสอบว่ามีคลาส NativeBridge ในโปรเจกต์ด้วยนะครับ
+                try {
+                    NativeBridge.runBytecode(payload.getBytes());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         });
     }
