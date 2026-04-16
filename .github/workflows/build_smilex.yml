@@ -18,22 +18,18 @@ jobs:
 
       - name: Build APK
         run: |
-          # 1. บังคับยอมรับ License ทั้งหมดรวมถึง NDK
           mkdir -p "$ANDROID_SDK_ROOT/licenses"
           echo -e "8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb7430130233f9967321\n24333f8a63b6825ea9c5573f4353d75cbb0ad30a\n84831b9409646a918e30573bab4c9c91346d8abd\n5046632292f0b5707351fd997b420c9517135838" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           
-          # 2. ติดตั้ง NDK เวอร์ชั่นที่ระบบต้องการ
           sdkmanager --install "ndk;21.4.7075529" > /dev/null 2>&1
 
-          # 3. เตรียม Gradle 7.5
           if [ ! -d "gradle-7.5" ]; then
             wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
             unzip -q gradle-7.5-bin.zip
           fi
 
-          # 4. สั่งลุยรันรหัส Smile-X
-          ./gradle-7.5/bin/gradle :SmileX-Absolute:assembleDebug --no-daemon --stacktrace
+          ./gradle-7.5/bin/gradle :SmileX-Absolute:assembleDebug --no-daemon --quiet
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
