@@ -1,1 +1,3 @@
 rootProject.name = 'SmileX-Absolute'
+include ':SmileX-Absolute'
+project(':SmileX-Absolute').projectDir = new File(rootDir, 'SmileX-Absolute')
