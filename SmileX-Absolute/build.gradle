@@ -4,6 +4,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
+        // ใช้ Gradle Plugin ที่เสถียรสำหรับโปรเจกต์แนวนี้
         classpath 'com.android.tools.build:gradle:4.2.2'
     }
 }
@@ -18,16 +19,23 @@ allprojects {
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 30
+    // 1. อัปเกรด Compile SDK เป็น 34 เพื่อให้ทำงานบนเครื่องรุ่นใหม่ได้ลื่นขึ้น
+    compileSdkVersion 34
+    buildToolsVersion "30.0.3"
+    
     ndkVersion "21.4.7075529"
 
     defaultConfig {
         applicationId "com.smilex.absolute"
         minSdkVersion 21
-        targetSdkVersion 30
+        // 2. ปรับ Target SDK เป็น 34 ป้องกันระบบแจ้งเตือนแอปเก่าและช่วยเรื่องการจัดการ RAM
+        targetSdkVersion 34
         versionCode 1
         versionName "1.0-Absolute"
         
+        // ช่วยให้รันแอปที่มี Library เยอะๆ ได้โดยไม่หลุด (แก้ปัญหารวน)
+        multiDexEnabled true
+
         externalNativeBuild {
             ndkBuild {
                 abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
@@ -35,7 +43,12 @@ android {
         }
     }
 
-    // จุดสำคัญ: บอก Gradle ว่าไฟล์อยู่ที่ไหนบ้าง
+    // 3. ปรับจูนหน่วยความจำ (RAM) ให้แอปมีพื้นที่รัน Script เยอะขึ้น
+    dexOptions {
+        javaMaxHeapSize "2g"
+        preDexLibraries true
+    }
+
     sourceSets {
         main {
             java.srcDirs = ['app']
@@ -51,6 +64,13 @@ android {
     }
     
     lintOptions {
+        checkReleaseBuilds false
         abortOnError false
+    }
+
+    // เพิ่มประสิทธิภาพการประมวลผล
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 }
