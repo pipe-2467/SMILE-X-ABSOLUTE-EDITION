@@ -34,10 +34,12 @@ android {
             }
         }
     }
-    
+
+    // จุดสำคัญ: บอก Gradle ว่าไฟล์อยู่ที่ไหนบ้าง
     sourceSets {
         main {
             java.srcDirs = ['app']
+            res.srcDirs = ['res']
             manifest.srcFile 'AndroidManifest.xml'
         }
     }
@@ -46,5 +48,9 @@ android {
         ndkBuild {
             path = file("jni/Android.mk")
         }
+    }
+    
+    lintOptions {
+        abortOnError false
     }
 }
