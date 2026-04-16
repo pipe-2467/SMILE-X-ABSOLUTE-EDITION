@@ -1,14 +1,14 @@
-name: Smile-X Manual Build
+name: Smile-X APK Builder
 on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4 # อัปเดตเป็น v4 แก้เรื่อง Node.js
 
       - name: Set up JDK 11
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: '11'
           distribution: 'temurin'
@@ -18,17 +18,14 @@ jobs:
         with:
           ndk-version: r21d
 
-      - name: Compile Native C++ (jni)
+      - name: Initialize Gradle
         run: |
-          cd SMILE-X-ABSOLUTE-EDITION-main/SmileX-Absolute/jni
-          ndk-build
-          # ถ้าผ่าน ขั้นตอนนี้จะได้ไฟล์ .so ออกมา
+          cd SMILE-X-ABSOLUTE-EDITION-main/SmileX-Absolute
+          # สั่งสร้างไฟล์ gradlew ใหม่ขึ้นมาเองเลยถ้ามันหาไม่เจอ
+          gradle wrapper 
 
-      - name: Compile Java Classes
+      - name: Build APK
         run: |
-          cd SMILE-X-ABSOLUTE-EDITION-main/SmileX-Absolute/app
-          # รวบรวมไฟล์ Java ทั้งหมดมาคอมไพล์
-          javac -d . *.java
-          
-      - name: Build Status
-        run: echo "ถ้ามาถึงจุดนี้ได้ แสดงว่าโค้ดของ Pipe ไม่มี Error แล้ว!"
+          cd SMILE-X-ABSOLUTE-EDITION-main/SmileX-Absolute
+          chmod +x gradlew
+          ./gradlew assembleDebug
