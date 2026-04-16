@@ -29,6 +29,9 @@ jobs:
             unzip -q gradle-7.5-bin.zip
           fi
 
+          # ปลดล็อค Java 17 ให้ Gradle 7.5 ทำงานได้
+          export GRADLE_OPTS="-Dorg.gradle.jvmargs='--add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED'"
+
           ./gradle-7.5/bin/gradle :SmileX-Absolute:assembleDebug --no-daemon --quiet
           
       - name: Upload APK
