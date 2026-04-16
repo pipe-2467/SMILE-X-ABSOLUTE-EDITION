@@ -4,6 +4,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.PixelFormat;
 import android.os.Build;
@@ -15,7 +16,6 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
-import androidx.core.app.NotificationCompat;
 
 public class FloatingService extends Service {
     private WindowManager wm;
@@ -27,14 +27,11 @@ public class FloatingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        
-        // 1. ทำให้เป็น Foreground Service เพื่อไม่ให้ GUI หายเวลาเล่นเกม
         initForeground();
 
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         v = LayoutInflater.from(this).inflate(R.layout.floating_menu, null);
 
-        // 2. ตั้งค่า Layout Params (แก้ปัญหาคีย์บอร์ดไม่ขึ้น)
         final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -47,7 +44,6 @@ public class FloatingService extends Service {
         params.x = 100;
         params.y = 100;
 
-        // 3. ระบบลากเมนู (Drag and Move)
         v.setOnTouchListener(new View.OnTouchListener() {
             private int lastX, lastY;
             private float touchX, touchY;
@@ -76,10 +72,8 @@ public class FloatingService extends Service {
             public void onClick(View view) {
                 String code = input.getText().toString();
                 try {
-                    // รันสคริปต์
                     NativeBridge.runBytecode(("loadstring([[" + code + "]])()").getBytes());
                 } finally {
-                    // 4. ล้าง RAM ทันทีที่กด Execute (แก้ปัญหารวน)
                     System.gc();
                 }
             }
@@ -91,10 +85,10 @@ public class FloatingService extends Service {
     private void initForeground() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel("smilex", "SmileX Active", NotificationManager.IMPORTANCE_MIN);
-            NotificationManager nm = getSystemService(NotificationManager.class);
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
             if (nm != null) nm.createNotificationChannel(channel);
             
-            Notification notification = new NotificationCompat.Builder(this, "smilex")
+            Notification notification = new Notification.Builder(this, "smilex")
                     .setContentTitle("Smile-X Absolute")
                     .setContentText("Executor is running...")
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -103,7 +97,6 @@ public class FloatingService extends Service {
         }
     }
 
-    // 5. ระบบช่วยล้าง Cache อัตโนมัติเมื่อ Android แจ้งเตือน RAM เต็ม
     @Override
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
@@ -112,7 +105,7 @@ public class FloatingService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        return START_STICKY; // บังคับให้เมนูกลับมาถ้าโดนระบบปิด
+        return START_STICKY;
     }
 
     @Override
