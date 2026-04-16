@@ -4,7 +4,6 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        // หัวใจสำคัญ: บอกให้ Gradle รู้จักเครื่องมือสร้าง Android
         classpath 'com.android.tools.build:gradle:4.2.2'
     }
 }
@@ -28,24 +27,25 @@ android {
         versionCode 1
         versionName "1.0-Absolute"
         
-        // สั่งให้คอมไพล์ JNI (core.cpp)
+        // ส่วนที่ 1: การตั้งค่าคอมไพล์สำหรับ defaultConfig
         externalNativeBuild {
             ndkBuild {
-                path "jni/Android.mk"
+                // สำหรับในนี้ ใช้คำสั่ง arguments หรือ abiFilters ได้ (ถ้ามี)
             }
         }
     }
     
     sourceSets {
         main {
-            java.srcDirs = ['app'] // ไฟล์ Java อยู่ในโฟลเดอร์ app
+            java.srcDirs = ['app']
             manifest.srcFile 'AndroidManifest.xml'
         }
     }
 
+    // ส่วนที่ 2: การระบุตำแหน่งไฟล์ Android.mk (จุดที่พังเมื่อกี้)
     externalNativeBuild {
         ndkBuild {
-            path "jni/Android.mk"
+            path file("jni/Android.mk") // ใช้คำว่า file เพื่อระบุตำแหน่งให้ชัดเจน
         }
     }
 }
