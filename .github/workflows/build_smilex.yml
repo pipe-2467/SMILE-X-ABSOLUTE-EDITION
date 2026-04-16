@@ -18,17 +18,18 @@ jobs:
 
       - name: Build APK
         run: |
-          # 1. ยอมรับ License แบบเงียบที่สุด (แก้ปัญหา Broken pipe)
+          # 1. ยอมรับ License
           mkdir -p "$ANDROID_SDK_ROOT/licenses"
           echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb7430130233f9967321\n24333f8a63b6825ea9c5573f4353d75cbb0ad30a" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
           
-          # 2. สร้าง Gradle Wrapper ไว้ที่หน้าแรกสุดของ Repository
-          gradle wrapper --gradle-version 7.5
-          chmod +x gradlew
+          # 2. บังคับติดตั้ง Gradle 7.5 (เพื่อแก้ปัญหา Plugin not found)
+          wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
+          unzip -q gradle-7.5-bin.zip
+          export PATH=$PATH:$(pwd)/gradle-7.5/bin
           
-          # 3. รัน Build โดยชี้ไปที่ Project ที่ระบุใน settings.gradle
-          # ใช้คำสั่งชี้ตรงไปที่ Module ที่หัวหน้าตั้งชื่อไว้
-          ./gradlew :SmileX-Absolute:assembleDebug --stacktrace
+          # 3. สร้าง Wrapper และรัน Build
+          # คราวนี้เราจะใช้คำสั่ง gradle (ที่เราเพิ่งโหลดมา) รันตรงๆ
+          gradle :SmileX-Absolute:assembleDebug --stacktrace
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
