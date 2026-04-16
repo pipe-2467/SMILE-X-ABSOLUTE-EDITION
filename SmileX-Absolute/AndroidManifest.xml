@@ -3,10 +3,13 @@
     package="com.smilex.absolute">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:allowBackup="true"
         android:label="Smile-X Absolute"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
         
         <activity android:name=".MainActivity"
@@ -20,6 +23,7 @@
         <service
             android:name=".FloatingService"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
     </application>
 </manifest>
