@@ -18,18 +18,17 @@ jobs:
 
       - name: Build APK
         run: |
-          # 1. ยอมรับ License
+          # 1. จัดการ License ให้จบ
           mkdir -p "$ANDROID_SDK_ROOT/licenses"
           echo -e "\n8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb7430130233f9967321\n24333f8a63b6825ea9c5573f4353d75cbb0ad30a" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
           
-          # 2. บังคับติดตั้ง Gradle 7.5 (เพื่อแก้ปัญหา Plugin not found)
+          # 2. ดาวน์โหลดและตั้งค่า Gradle 7.5 แบบ Local (ไม่ใช้ของระบบ)
           wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
           unzip -q gradle-7.5-bin.zip
-          export PATH=$PATH:$(pwd)/gradle-7.5/bin
           
-          # 3. สร้าง Wrapper และรัน Build
-          # คราวนี้เราจะใช้คำสั่ง gradle (ที่เราเพิ่งโหลดมา) รันตรงๆ
-          gradle :SmileX-Absolute:assembleDebug --stacktrace
+          # 3. รันโดยระบุ Path ไปที่ Gradle 7.5 โดยตรง (ห้ามมันไปใช้ตัวอื่น)
+          # และใช้คำสั่ง --no-daemon เพื่อป้องกันมันไปปลุก Gradle ตัวอื่นขึ้นมา
+          ./gradle-7.5/bin/gradle :SmileX-Absolute:assembleDebug --no-daemon --stacktrace
           
       - name: Upload APK
         uses: actions/upload-artifact@v4
