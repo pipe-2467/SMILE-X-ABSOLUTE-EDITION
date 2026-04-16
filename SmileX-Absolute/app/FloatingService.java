@@ -1,20 +1,21 @@
 package com.smilex.absolute;
 
 import android.app.Service;
-import android.content.Intent; // เพิ่ม
-import android.os.IBinder;   // เพิ่ม
+import android.content.Intent;
+import android.os.IBinder;
 import android.view.WindowManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Button;
-import com.smilex.absolute.R; // เพิ่ม (สำคัญมากเพื่อให้รู้จัก R.layout และ R.id)
+
+// *** เพิ่มบรรทัดนี้เข้าไปครับ ***
+import com.smilex.absolute.R; 
 
 public class FloatingService extends Service {
     private WindowManager wm;
     private View v;
 
-    // จุดที่ 1: ต้องมี onBind เสมอสำหรับ Service
     @Override
     public IBinder onBind(Intent intent) {
         return null;
@@ -23,10 +24,10 @@ public class FloatingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        
-        // จุดที่ 2: ตรวจสอบว่ามีไฟล์ res/layout/floating_menu.xml ในโปรเจกต์
+        // ตอนนี้มันจะรู้จัก R.layout.floating_menu แล้ว
         v = LayoutInflater.from(this).inflate(R.layout.floating_menu, null);
-
+        
+        // และจะรู้จัก R.id.btnRun กับ R.id.editScript ด้วย
         Button runBtn = v.findViewById(R.id.btnRun);
         final EditText input = v.findViewById(R.id.editScript);
 
@@ -34,11 +35,10 @@ public class FloatingService extends Service {
             @Override
             public void onClick(View view) {
                 String code = input.getText().toString();
-                // หุ้มด้วย loadstring
                 String payload = "loadstring([[" + code + "]])()";
                 
-                // จุดที่ 3: เรียกใช้ NativeBridge (ต้องมีไฟล์ NativeBridge.java ด้วย)
-                NativeBridge.runBytecode(payload.getBytes()); // แนะนำให้ส่งเป็น byte[] เพื่อความชัวร์ในฝั่ง C++
+                // อย่าลืมเรื่อง NativeBridge ถ้ายังไม่ได้สร้างไฟล์แยกไว้
+                // NativeBridge.runBytecode(payload.getBytes());
             }
         });
     }
