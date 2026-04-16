@@ -1,0 +1,39 @@
+name: Smile-X APK Builder
+on:
+  workflow_dispatch: # กดปุ่มสั่ง Build เองได้
+  push:
+    branches: [ main ] # รันอัตโนมัติเมื่อมีการอัปเดตโค้ด
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r21d # ใช้เวอร์ชันที่เสถียรสำหรับไฟล์ jni ของนาย
+
+      - name: Build Native Library (JNI)
+        run: |
+          cd SMILE-X-ABSOLUTE-EDITION-main/SmileX-Absolute/jni
+          ndk-build # คอมไพล์ core.cpp เป็นไฟล์ .so
+
+      - name: Build APK with Gradle
+        run: |
+          cd SMILE-X-ABSOLUTE-EDITION-main/SmileX-Absolute
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Finished APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: Smile-X-Absolute-Build
+          path: SMILE-X-ABSOLUTE-EDITION-main/SmileX-Absolute/app/build/outputs/apk/debug/*.apk
