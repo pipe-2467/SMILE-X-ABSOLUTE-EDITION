@@ -1,7 +1,26 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // หัวใจสำคัญ: บอกให้ Gradle รู้จักเครื่องมือสร้าง Android
+        classpath 'com.android.tools.build:gradle:4.2.2'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
 apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 30
+    
     defaultConfig {
         applicationId "com.smilex.absolute"
         minSdkVersion 21
@@ -19,7 +38,7 @@ android {
     
     sourceSets {
         main {
-            java.srcDirs = ['app'] // บอกว่าไฟล์ Java อยู่ในโฟลเดอร์ app
+            java.srcDirs = ['app'] // ไฟล์ Java อยู่ในโฟลเดอร์ app
             manifest.srcFile 'AndroidManifest.xml'
         }
     }
