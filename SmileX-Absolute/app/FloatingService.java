@@ -30,24 +30,31 @@ public class FloatingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        // 1. [สำคัญที่สุด] ต้องเรียก Foreground ทันที ห้ามมีอะไรคั่น!
+        // ถ้าไม่รันตัวนี้ภายใน 5 วินาที แอปจะขึ้นว่า "แอปหยุดทำงาน"
         startMyForeground();
 
+        // 2. หลังจากนั้นค่อยเตรียม WindowManager
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+        
+        // 3. เตรียม Layout
         menuView = LayoutInflater.from(this).inflate(R.layout.floating_menu, null);
         
-        // สร้างปุ่มย่อ [SX]
         collapsedView = new Button(this);
         collapsedView.setText("SX");
         collapsedView.setBackgroundColor(0xFF00FF00); // เขียวมรกต
         collapsedView.setTextColor(0xFF000000);
 
+        int layoutType = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? 
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : 
+            WindowManager.LayoutParams.TYPE_PHONE;
+
         params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? 
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : 
-                    WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, // เริ่มต้นห้ามดักคีย์บอร์ด
+                layoutType,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 PixelFormat.TRANSLUCENT
         );
         params.gravity = Gravity.TOP | Gravity.LEFT;
@@ -58,38 +65,55 @@ public class FloatingService extends Service {
         setupDrag(menuView);
         setupDrag(collapsedView);
 
-        // --- แก้บัคที่ 1: กดปุ่มย่อแล้วต้องขยายกลับได้ ---
         collapsedView.setOnClickListener(v -> toggleView());
 
-        wm.addView(menuView, params);
+        // 4. แสดงผล GUI
+        try {
+            wm.addView(menuView, params);
+        } catch (Exception e) {
+            // ถ้าพังตรงนี้แสดงว่าลืมขอสิทธิ์ "Display over other apps"
+            e.printStackTrace();
+        }
     }
 
+    private void startMyForeground() {
+        String CHANNEL_ID = "smilex_abs_v1";
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "SmileX Service", NotificationManager.IMPORTANCE_LOW);
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) nm.createNotificationChannel(channel);
+
+            Notification notification = new Notification.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Smile-X Absolute Running")
+                    .setContentText("มรกตแห่ง BFL Party กำลังทำงาน...")
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .build();
+            
+            // สำหรับ Android 14 (SDK 34) ต้องระบุประเภทถ้ามีการขอใน Manifest
+            startForeground(1, notification);
+        }
+    }
+
+    // --- ส่วนที่เหลือ (setupLogic, setupDrag, toggleView) เหมือนเดิม ---
     private void setupLogic(View v) {
         Button btnRun = v.findViewById(R.id.btnRun);
         Button btnMin = v.findViewById(R.id.btnMinimize);
         Button btnClose = v.findViewById(R.id.btnClose);
         final EditText input = v.findViewById(R.id.editScript);
 
-        // --- แก้บัคที่ 2: ระบบจัดการคีย์บอร์ด (Focus Management) ---
-        // เมื่อแตะที่ช่องพิมพ์ ให้ดึงคีย์บอร์ดขึ้นมา
         input.setOnTouchListener((view, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 params.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
                 wm.updateViewLayout(isMinimized ? collapsedView : menuView, params);
-                input.requestFocus();
             }
             return false;
         });
 
-        // เมื่อกดรัน ให้คืนคีย์บอร์ดให้ระบบทันที
         btnRun.setOnClickListener(view -> {
             String code = input.getText().toString();
             NativeBridge.runBytecode(("loadstring([[" + code + "]])()").getBytes());
-            
-            // คืน Focus ให้เกมทันที
             params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
             wm.updateViewLayout(isMinimized ? collapsedView : menuView, params);
-            input.clearFocus();
             System.gc();
         });
 
@@ -105,10 +129,6 @@ public class FloatingService extends Service {
             wm.removeView(collapsedView);
             wm.addView(menuView, params);
         }
-        // ทุกครั้งที่สลับหน้าจอ ให้ reset คีย์บอร์ดเป็นโหมดห้ามดักไว้ก่อน (เพื่อความชัวร์)
-        params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-        wm.updateViewLayout(isMinimized ? menuView : collapsedView, params);
-        
         isMinimized = !isMinimized;
     }
 
@@ -117,7 +137,6 @@ public class FloatingService extends Service {
             private int lastX, lastY;
             private float touchX, touchY;
             private long lastDownTime;
-
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 switch (event.getAction()) {
@@ -132,24 +151,12 @@ public class FloatingService extends Service {
                         wm.updateViewLayout(view, params);
                         return true;
                     case MotionEvent.ACTION_UP:
-                        // ถ้ากดแป๊บเดียว (ไม่ลาก) ให้ถือว่าเป็นการคลิก (สำหรับปุ่มย่อ)
-                        if (System.currentTimeMillis() - lastDownTime < 200) {
-                            view.performClick();
-                        }
+                        if (System.currentTimeMillis() - lastDownTime < 200) view.performClick();
                         return true;
                 }
                 return false;
             }
         });
-    }
-
-    private void startMyForeground() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel("sx", "SmileX", NotificationManager.IMPORTANCE_MIN);
-            NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-            if (nm != null) nm.createNotificationChannel(channel);
-            startForeground(1, new Notification.Builder(this, "sx").setContentTitle("Smile-X").build());
-        }
     }
 
     @Override
