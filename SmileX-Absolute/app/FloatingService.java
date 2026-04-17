@@ -25,7 +25,9 @@ public class FloatingService extends Service {
     private Button collapsedView;
     private WindowManager.LayoutParams params;
     private boolean isMinimized = false;
-    private String lastScript = ""; // กันสคริปต์หายเวลาแอป Restart
+    
+    // ตัวแปรสำคัญ: เก็บสคริปต์ล่าสุดไว้กันหาย (แม้แอปจะ Restart)
+    private static String savedScript = ""; 
 
     @Override
     public IBinder onBind(Intent intent) { return null; }
@@ -34,12 +36,12 @@ public class FloatingService extends Service {
     public void onCreate() {
         super.onCreate();
         
-        // 1. เรียก Foreground ทันทีเพื่อกัน Android 14 สั่ง Kill แอป
+        // 1. ต้องเรียกสิ่งนี้เป็นอันดับแรกเพื่อป้องกันระบบ Android สั่งปิดแอป
         startMyForeground();
 
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         
-        // 2. ตั้งค่า Layout Params เบื้องต้น (เริ่มต้นที่โหมดไม่ดักคีย์บอร์ด)
+        // 2. ตั้งค่า Layout สำหรับ Android 14 (SDK 34)
         int layoutType = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? 
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : 
             WindowManager.LayoutParams.TYPE_PHONE;
@@ -55,16 +57,17 @@ public class FloatingService extends Service {
         params.x = 100;
         params.y = 100;
 
-        // 3. เตรียม View
         initViews();
     }
 
     private void initViews() {
+        // ดึง Layout จาก XML
         menuView = LayoutInflater.from(this).inflate(R.layout.floating_menu, null);
         
+        // สร้างปุ่มย่อขนาดฉบับ BFL
         collapsedView = new Button(this);
         collapsedView.setText("SX");
-        collapsedView.setBackgroundColor(0xFF00FF00); // มรกต BFL
+        collapsedView.setBackgroundColor(0xFF00FF00); // สีเขียวมรกต
         collapsedView.setTextColor(0xFF000000);
 
         setupLogic(menuView);
@@ -76,7 +79,7 @@ public class FloatingService extends Service {
         try {
             wm.addView(menuView, params);
         } catch (Exception e) {
-            Toast.makeText(this, "กรุณาเปิดสิทธิ์แสดงทับแอปอื่น", Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
         }
     }
 
@@ -86,36 +89,49 @@ public class FloatingService extends Service {
         Button btnMin = v.findViewById(R.id.btnMinimize);
         Button btnClose = v.findViewById(R.id.btnClose);
 
-        input.setText(lastScript);
+        // ดึงสคริปต์ที่เคยพิมพ์ไว้กลับมา (กันหาย)
+        input.setText(savedScript);
 
         // --- แก้บัคคีย์บอร์ดไม่ขึ้น ---
         input.setOnTouchListener((view, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                // เปลี่ยน Flag ให้รับ Focus เพื่อเรียกคีย์บอร์ด
                 params.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
                 wm.updateViewLayout(isMinimized ? collapsedView : menuView, params);
                 input.requestFocus();
                 
-                // บังคับให้คีย์บอร์ดเด้ง
                 InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
                 if (imm != null) imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT);
             }
             return false;
         });
 
+        // --- ปุ่ม Execute ฉบับกันแอปเด้ง ---
         btnRun.setOnClickListener(view -> {
-            lastScript = input.getText().toString();
-            
-            // แยก Thread รันสคริปต์ เพื่อไม่ให้ GUI ค้างจนหายไป
+            final String code = input.getText().toString().trim();
+
+            // ถ้าไม่มีสคริปต์ ไม่ต้องรัน (ป้องกันแอป Crash)
+            if (code.isEmpty()) {
+                Toast.makeText(this, "กรุณาใส่สคริปต์ก่อนรัน Fl0WERk1ng", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // เซฟค่าเก็บไว้ทันที
+            savedScript = code;
+
+            // รันใน Thread แยก (Background) ไม่ให้กวน UI ของ Android
             new Thread(() -> {
                 try {
-                    NativeBridge.runBytecode(("loadstring([[" + lastScript + "]])()").getBytes());
+                    // รันผ่าน NativeBridge
+                    NativeBridge.runBytecode(("loadstring([[" + code + "]])()").getBytes());
+                    
+                    // เรียก Garbage Collector เพื่อคืน RAM ทันทีหลังรัน (ลดอาการแอปอืด)
+                    System.gc();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }).start();
 
-            // คืน Focus ให้เกมทันทีหลังกด Run
+            // คืน Focus ให้เกมทันทีหลังกด Run (กันตัวละครเดินไม่ได้)
             params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
             wm.updateViewLayout(isMinimized ? collapsedView : menuView, params);
             input.clearFocus();
@@ -123,6 +139,8 @@ public class FloatingService extends Service {
             // ซ่อนคีย์บอร์ด
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             if (imm != null) imm.hideSoftInputFromWindow(input.getWindowToken(), 0);
+            
+            Toast.makeText(this, "Executing...", Toast.LENGTH_SHORT).show();
         });
 
         btnMin.setOnClickListener(view -> toggleView());
@@ -137,7 +155,6 @@ public class FloatingService extends Service {
             wm.removeView(collapsedView);
             wm.addView(menuView, params);
         }
-        // ทุกครั้งที่สลับ ต้องคืน Focus เพื่อความปลอดภัย
         params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
         wm.updateViewLayout(isMinimized ? menuView : collapsedView, params);
         isMinimized = !isMinimized;
@@ -171,16 +188,16 @@ public class FloatingService extends Service {
     }
 
     private void startMyForeground() {
-        String CHANNEL_ID = "sx_absolute";
+        String CHANNEL_ID = "fl0werk1ng_service";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "SmileX Service", NotificationManager.IMPORTANCE_MIN);
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "BFL Party Guard", NotificationManager.IMPORTANCE_LOW);
             NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             if (nm != null) nm.createNotificationChannel(channel);
 
             Notification n = new Notification.Builder(this, CHANNEL_ID)
-                    .setContentTitle("Smile-X Absolute")
-                    .setContentText("Flower King กำลังปกป้อง BFL Party...")
-                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setContentTitle("Fl0WERk1ng Active")
+                    .setContentText("BFL Party กำลังทำงานในเบื้องหลัง...")
+                    .setSmallIcon(android.R.drawable.ic_lock_power_off) // ไอคอนสัญลักษณ์ความดุ
                     .build();
             startForeground(101, n);
         }
