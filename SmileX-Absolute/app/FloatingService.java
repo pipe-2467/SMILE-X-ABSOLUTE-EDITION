@@ -27,16 +27,30 @@ public class FloatingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        initForeground();
+        
+        // เริ่ม Foreground Service แบบเซฟๆ
+        try {
+            initForeground();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         v = LayoutInflater.from(this).inflate(R.layout.floating_menu, null);
 
+        // ใช้ TYPE_APPLICATION_OVERLAY สำหรับ Android 8.0+
+        int layoutType;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            layoutType = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+        } else {
+            layoutType = WindowManager.LayoutParams.TYPE_PHONE;
+        }
+
         final WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                layoutType,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, // เริ่มต้นด้วยตัวนี้ก่อนเพื่อความเสถียร
                 PixelFormat.TRANSLUCENT
         );
 
@@ -44,6 +58,7 @@ public class FloatingService extends Service {
         params.x = 100;
         params.y = 100;
 
+        // ระบบลาก (Drag)
         v.setOnTouchListener(new View.OnTouchListener() {
             private int lastX, lastY;
             private float touchX, touchY;
@@ -64,18 +79,26 @@ public class FloatingService extends Service {
             }
         });
 
-        Button runBtn = v.findViewById(R.id.btnRun);
+        // แก้ปัญหาคีย์บอร์ด: เมื่อแตะที่ EditText ให้สลับ Flag
         final EditText input = v.findViewById(R.id.editScript);
+        input.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent event) {
+                params.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
+                wm.updateViewLayout(v, params);
+                return false;
+            }
+        });
 
+        Button runBtn = v.findViewById(R.id.btnRun);
         runBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 String code = input.getText().toString();
-                try {
-                    NativeBridge.runBytecode(("loadstring([[" + code + "]])()").getBytes());
-                } finally {
-                    System.gc();
-                }
+                NativeBridge.runBytecode(("loadstring([[" + code + "]])()").getBytes());
+                // รันเสร็จให้เอา Focus ออก คีย์บอร์ดจะได้ยุบ
+                params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
+                wm.updateViewLayout(v, params);
             }
         });
 
@@ -83,24 +106,19 @@ public class FloatingService extends Service {
     }
 
     private void initForeground() {
+        String CHANNEL_ID = "smilex_channel";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel("smilex", "SmileX Active", NotificationManager.IMPORTANCE_MIN);
-            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if (nm != null) nm.createNotificationChannel(channel);
-            
-            Notification notification = new Notification.Builder(this, "smilex")
-                    .setContentTitle("Smile-X Absolute")
-                    .setContentText("Executor is running...")
-                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "SmileX Service", NotificationManager.IMPORTANCE_LOW);
+            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager != null) manager.createNotificationChannel(channel);
+
+            Notification notification = new Notification.Builder(this, CHANNEL_ID)
+                    .setContentTitle("Smile-X")
+                    .setContentText("Executor is active")
+                    .setSmallIcon(android.R.drawable.ic_menu_info_details)
                     .build();
             startForeground(1, notification);
         }
-    }
-
-    @Override
-    public void onTrimMemory(int level) {
-        super.onTrimMemory(level);
-        System.gc(); 
     }
 
     @Override
@@ -111,9 +129,6 @@ public class FloatingService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (v != null) {
-            wm.removeView(v);
-            v = null;
-        }
+        if (v != null) wm.removeView(v);
     }
 }
