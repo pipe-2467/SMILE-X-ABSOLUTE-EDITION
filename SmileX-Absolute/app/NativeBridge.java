@@ -1,8 +1,11 @@
-package com.smilex.absolute; // ตรวจสอบ package ให้ตรงกับโปรเจกต์
+package com.smilex.absolute; // เก็บไว้! ห้ามลบ เพราะโปรเจกต์ลูกพี่ใช้แบบนี้
 
 public class NativeBridge {
     static {
-        System.loadLibrary("smilex"); // ชื่อ library ต้องตรงกับใน Android.mk
+        System.loadLibrary("smilex");
     }
-    public static native void runBytecode(byte[] data);
+    // เพิ่มอันนี้เข้าไป
+    public static native void applyIdentity(long luaPtr);
+    // แก้จาก byte[] data เป็น String code
+    public static native void runBytecode(String code);
 }
