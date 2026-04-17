@@ -2,13 +2,13 @@ package com.smilex.absolute;
 
 public class NativeBridge {
     static {
-        // ชื่อต้องตรงกับ LOCAL_MODULE ใน Android.mk
+        // ชื่อ library ต้องตรงกับใน Android.mk
         System.loadLibrary("smilex");
     }
 
-    // ฟังก์ชันปลดล็อก Identity 8 (God Mode)
+    // สำหรับปลดล็อก Identity 8
     public static native void applyIdentity(long luaPtr);
 
-    // ฟังก์ชันส่งสคริปต์ไปรัน (รับเป็นข้อความ String)
-    public static native void runBytecode(String code);
+    // สำหรับรันโค้ด (รับเป็น byte[] เพื่อแก้บัคที่ลูกพี่เจอ)
+    public static native void runBytecode(byte[] data);
 }
