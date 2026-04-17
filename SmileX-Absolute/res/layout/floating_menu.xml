@@ -1,29 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
+    android:layout_width="280dp"
     android:layout_height="wrap_content"
-    android:background="#AA00FF00"
+    android:background="#DD111111"
     android:orientation="vertical"
-    android:padding="10dp">
+    android:padding="8dp">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <RelativeLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Smile-X Executor"
-        android:textColor="#FFFFFF"
-        android:textStyle="bold" />
+        android:layout_marginBottom="5dp">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SMILE-X ABSOLUTE"
+            android:textColor="#00FF00"
+            android:textStyle="bold" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true">
+            <Button
+                android:id="@+id/btnMinimize"
+                android:layout_width="40dp"
+                android:layout_height="35dp"
+                android:text="-"
+                android:backgroundTint="#444444" />
+            <Button
+                android:id="@+id/btnClose"
+                android:layout_width="40dp"
+                android:layout_height="35dp"
+                android:layout_marginStart="5dp"
+                android:text="X"
+                android:backgroundTint="#AA0000" />
+        </LinearLayout>
+    </RelativeLayout>
 
-    <EditText
-        android:id="@+id/editScript"
-        android:layout_width="200dp"
-        android:layout_height="wrap_content"
-        android:hint="Put Lua Script here..."
-        android:textColor="#FFFFFF" />
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:background="#22FFFFFF"
+        android:padding="5dp">
+        <EditText
+            android:id="@+id/editScript"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
+            android:gravity="top"
+            android:hint="Paste your script here..."
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:inputType="textMultiLine" />
+    </ScrollView>
 
     <Button
         android:id="@+id/btnRun"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:backgroundTint="#008800"
         android:text="EXECUTE" />
-
 </LinearLayout>
