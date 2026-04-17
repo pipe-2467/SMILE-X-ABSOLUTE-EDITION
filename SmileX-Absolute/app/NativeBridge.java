@@ -1,11 +1,14 @@
-package com.smilex.absolute; // เก็บไว้! ห้ามลบ เพราะโปรเจกต์ลูกพี่ใช้แบบนี้
+package com.smilex.absolute;
 
 public class NativeBridge {
     static {
+        // ชื่อต้องตรงกับ LOCAL_MODULE ใน Android.mk
         System.loadLibrary("smilex");
     }
-    // เพิ่มอันนี้เข้าไป
+
+    // ฟังก์ชันปลดล็อก Identity 8 (God Mode)
     public static native void applyIdentity(long luaPtr);
-    // แก้จาก byte[] data เป็น String code
+
+    // ฟังก์ชันส่งสคริปต์ไปรัน (รับเป็นข้อความ String)
     public static native void runBytecode(String code);
 }
