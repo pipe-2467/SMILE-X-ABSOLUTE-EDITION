@@ -2,7 +2,8 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE    := SmileXCore
+# ชื่ออาวุธของเรา
+LOCAL_MODULE    := smilex
 LOCAL_SRC_FILES := core.cpp
 LOCAL_LDLIBS    := -llog -landroid
 
