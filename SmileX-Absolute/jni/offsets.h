@@ -6,4 +6,3 @@
 #define LUASTATE_PTR 0x1A0
 
 #endif
-
