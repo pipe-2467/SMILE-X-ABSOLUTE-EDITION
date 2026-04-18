@@ -17,29 +17,26 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'gradle'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           ndk-version: '21.4.7075529'
 
-      # --- STEP แก้ปัญหาเรื่องเวอร์ชัน Gradle ---
-      - name: Setup Gradle 7.5
-        uses: gradle/gradle-build-action@v3
+      # --- เปลี่ยนมาใช้ Action ตัวใหม่ล่าสุดตามคำแนะนำของ GitHub ---
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 7.5
 
-      - name: Repair and Build
+      - name: Build APK
         working-directory: ./SmileX-Absolute
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs='--add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED'"
         run: |
-          # สร้าง wrapper ใหม่ด้วยเวอร์ชัน 7.5 ที่โหลดมาเมื่อกี้
-          gradle wrapper
-          chmod +x gradlew
-          # เริ่ม Build ทันที
-          ./gradlew assembleDebug --no-daemon
+          # ไม่ใช้ ./gradlew แล้ว แต่จะใช้คำสั่ง gradle ตรงๆ ของระบบ
+          # และใส่ --stacktrace เพื่อให้เห็น Error ชัดๆ ถ้ามันพังอีก
+          gradle :app:assembleDebug --no-daemon --stacktrace || gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
