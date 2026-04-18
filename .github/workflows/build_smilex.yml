@@ -1,11 +1,16 @@
 name: Smile-X APK Builder
-on: [push, workflow_dispatch]
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -14,17 +19,15 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
-      - name: Setup Android SDK & NDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           ndk-version: '21.4.7075529'
 
       - name: Grant Execute Permission
-        # สั่ง chmod เข้าไปที่ไฟล์ในโฟลเดอร์โดยตรง
         run: chmod +x SmileX-Absolute/gradlew
 
       - name: Build APK with Gradle
-        # กำหนด working-directory ให้รันคำสั่งข้างในโฟลเดอร์ SmileX-Absolute
         working-directory: ./SmileX-Absolute
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs='--add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED'"
@@ -34,5 +37,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Smile-X-Absolute-Build
-          # ปรับ Path ให้หาไฟล์ที่ Build เสร็จแล้วในโฟลเดอร์ลูกพี่
-          path: "SmileX-Absolute/app/build/outputs/apk/debug/*.apk"
+          path: "**/build/outputs/apk/debug/*.apk"
