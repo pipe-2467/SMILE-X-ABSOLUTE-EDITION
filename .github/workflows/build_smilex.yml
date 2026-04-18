@@ -24,20 +24,22 @@ jobs:
         with:
           ndk-version: '21.4.7075529'
 
-      # --- STEP แก้ปัญหาหา JAR ไม่เจอ ---
-      - name: Repair Gradle Wrapper
-        working-directory: ./SmileX-Absolute
-        run: |
-          # ติดตั้ง Gradle ลงเครื่องชั่วคราวเพื่อสร้างไฟล์ wrapper ที่ขาดหายไป
-          sudo apt-get install -y gradle
-          gradle wrapper --gradle-version 7.5
-          chmod +x gradlew
+      # --- STEP แก้ปัญหาเรื่องเวอร์ชัน Gradle ---
+      - name: Setup Gradle 7.5
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: 7.5
 
-      - name: Build APK with Gradle
+      - name: Repair and Build
         working-directory: ./SmileX-Absolute
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs='--add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED'"
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          # สร้าง wrapper ใหม่ด้วยเวอร์ชัน 7.5 ที่โหลดมาเมื่อกี้
+          gradle wrapper
+          chmod +x gradlew
+          # เริ่ม Build ทันที
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
