@@ -12,30 +12,26 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          # เพิ่มระบบ Cache เพื่อให้รันครั้งต่อไปเร็วขึ้น (กราฟจะสวยขึ้น)
+          cache: 'gradle'
 
-      - name: Setup Android SDK
+      - name: Setup Android SDK & NDK
         uses: android-actions/setup-android@v3
+        with:
+          # ระบุเวอร์ชัน NDK ที่ลูกพี่ต้องการตรงนี้เลย
+          ndk-version: '21.4.7075529'
 
-      - name: Build APK
-        run: |
-          mkdir -p "$ANDROID_SDK_ROOT/licenses"
-          echo -e "8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb7430130233f9967321\n24333f8a63b6825ea9c5573f4353d75cbb0ad30a\n84831b9409646a918e30573bab4c9c91346d8abd\n5046632292f0b5707351fd997b420c9517135838" > "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          
-          sdkmanager --install "ndk;21.4.7075529" > /dev/null 2>&1
+      - name: Grant Execute Permission for Gradlew
+        run: chmod +x gradlew
 
-          if [ ! -d "gradle-7.5" ]; then
-            wget -q https://services.gradle.org/distributions/gradle-7.5-bin.zip
-            unzip -q gradle-7.5-bin.zip
-          fi
+      - name: Build APK with Gradle
+        # ใช้ GRADLE_OPTS เพื่อแก้ปัญหา Java 17 กับ Gradle รุ่นเก่า
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs='--add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED'"
+        run: ./gradlew :SmileX-Absolute:assembleDebug --no-daemon
 
-          # ปลดล็อค Java 17 ให้ Gradle 7.5 ทำงานได้
-          export GRADLE_OPTS="-Dorg.gradle.jvmargs='--add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED'"
-
-          ./gradle-7.5/bin/gradle :SmileX-Absolute:assembleDebug --no-daemon --quiet
-          
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Smile-X-Absolute-Build
-          path: "**/build/outputs/apk/debug/*.apk"
+          path: "app/build/outputs/apk/debug/*.apk"
