@@ -9,9 +9,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # 1. ดึงโค้ดจากโปรเจกต์มาวางในเครื่อง Build
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # 2. ติดตั้ง Java 17 (หัวใจหลักของ Android ยุคใหม่)
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -19,20 +21,25 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      # 3. เตรียม Android SDK และ NDK (V.21.4.7075529)
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           ndk-version: '21.4.7075529'
 
+      # 4. ปรับสิทธิ์ให้ gradlew สามารถทำงานได้
       - name: Grant Execute Permission
         run: chmod +x SmileX-Absolute/gradlew
 
+      # 5. เริ่มกระบวนการ Build APK
       - name: Build APK with Gradle
         working-directory: ./SmileX-Absolute
         env:
+          # ปลดล็อก Java 17 ให้คุยกับ Gradle รุ่นเก่าได้แบบไม่ Error
           GRADLE_OPTS: "-Dorg.gradle.jvmargs='--add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED'"
         run: ./gradlew assembleDebug --no-daemon
 
+      # 6. ส่งไฟล์ APK ที่ได้ออกมาให้ลูกพี่โหลด
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
