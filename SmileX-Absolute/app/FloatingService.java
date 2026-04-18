@@ -59,10 +59,13 @@ public class FloatingService extends Service {
     }
 
     private void initViews() {
+        // ดึง Layout มาจาก floating_menu.xml
         menuView = LayoutInflater.from(this).inflate(R.layout.floating_menu, null);
+        
+        // สร้างปุ่มย่อขนาด (SX)
         collapsedView = new Button(this);
         collapsedView.setText("SX");
-        collapsedView.setBackgroundColor(0xFF00FF00);
+        collapsedView.setBackgroundColor(0xFF00FF00); // สีเขียวมรกต
         collapsedView.setTextColor(0xFF000000);
 
         setupLogic(menuView);
@@ -81,7 +84,7 @@ public class FloatingService extends Service {
 
         input.setText(savedScript);
 
-        // ระบบเรียกคีย์บอร์ด
+        // ระบบ Focus เมื่อแตะที่ช่องกรอกสคริปต์
         input.setOnTouchListener((view, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 params.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
@@ -93,47 +96,61 @@ public class FloatingService extends Service {
             return false;
         });
 
-        // --- ระบบ Execute มรกต (ตัวอัปเกรด) ---
+        // --- ระบบปุ่ม Execute (จุดรวมพลัง) ---
         btnRun.setOnClickListener(view -> {
             final String code = input.getText().toString().trim();
-            if (code.isEmpty()) return;
+            if (code.isEmpty()) {
+                Toast.makeText(this, "ระบุสคริปต์ก่อนลูกพี่!", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
             savedScript = code;
 
             new Thread(() -> {
                 try {
-                    // 1. ห่อหุ้มสคริปต์ด้วย pcall เพื่อเช็ค Error ฝั่ง Lua
-                    // และใช้ UTF-8 เผื่อสคริปต์มีภาษาไทย/อักขระพิเศษ
+                    // 1. ห่อหุ้มสคริปต์ด้วย pcall ป้องกันเกมเด้งเมื่อสคริปต์ Error
                     String wrappedCode = "local s, e = pcall(function() " + code + " end) if not s then warn('BFL ERROR: '..tostring(e)) end";
                     byte[] bytecode = wrappedCode.getBytes(StandardCharsets.UTF_8);
 
-                    // 2. ส่งไปที่ NativeBridge (เช็คว่า NativeBridge.java ของลูกพี่รับ byte[] หรือ String)
+                    // 2. ดึงพิกัด LuaState (ลูกพี่ต้องเปลี่ยนเลข 0x0 เป็นตัวแปรที่ดึงจาก Scan Memory จริงๆ)
+                    long currentLuaPtr = 0x0; // <--- ใส่ตัวดึงค่าตรงนี้
+
+                    // 3. ปลดล็อก Identity 8 ผ่าน NativeBridge
+                    if (currentLuaPtr != 0) {
+                        NativeBridge.applyIdentity(currentLuaPtr);
+                    }
+
+                    // 4. ส่งสคริปต์เข้าสู่เครื่องยนต์ C++
                     NativeBridge.runBytecode(bytecode);
                     
-                    Log.d(TAG, "Sent to Native: " + code);
+                    Log.d(TAG, "Fl0WERk1ng: Script sent to bridge.");
                 } catch (Exception e) {
-                    Log.e(TAG, "Execute Error", e);
+                    Log.e(TAG, "Execution Failed", e);
                 }
             }).start();
 
-            // คืนสิทธิ์ให้เกม
+            // คืนสิทธิ์ Focus ให้หน้าจอเกมหลังกด Run
             params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
             wm.updateViewLayout(isMinimized ? collapsedView : menuView, params);
             input.clearFocus();
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             if (imm != null) imm.hideSoftInputFromWindow(input.getWindowToken(), 0);
             
-            Toast.makeText(this, "Fl0WERk1ng: Power Sent!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "BFL Party: Power Sent!", Toast.LENGTH_SHORT).show();
         });
 
         btnMin.setOnClickListener(view -> toggleView());
         btnClose.setOnClickListener(view -> stopSelf());
     }
 
-    // --- ส่วนเสริม (Toggle, Drag, Foreground) เหมือนเดิมแต่ทำให้ Clean ขึ้น ---
     private void toggleView() {
-        if (!isMinimized) { wm.removeView(menuView); wm.addView(collapsedView, params); } 
-        else { wm.removeView(collapsedView); wm.addView(menuView, params); }
+        if (!isMinimized) {
+            wm.removeView(menuView);
+            wm.addView(collapsedView, params);
+        } else {
+            wm.removeView(collapsedView);
+            wm.addView(menuView, params);
+        }
         params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
         wm.updateViewLayout(isMinimized ? menuView : collapsedView, params);
         isMinimized = !isMinimized;
@@ -141,19 +158,26 @@ public class FloatingService extends Service {
 
     private void setupDrag(View v) {
         v.setOnTouchListener(new View.OnTouchListener() {
-            private int lastX, lastY; private float touchX, touchY; private long downTime;
+            private int lastX, lastY; 
+            private float touchX, touchY; 
+            private long downTime;
+
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        downTime = System.currentTimeMillis(); lastX = params.x; lastY = params.y;
-                        touchX = event.getRawX(); touchY = event.getRawY(); return true;
+                        downTime = System.currentTimeMillis();
+                        lastX = params.x; lastY = params.y;
+                        touchX = event.getRawX(); touchY = event.getRawY();
+                        return true;
                     case MotionEvent.ACTION_MOVE:
                         params.x = lastX + (int) (event.getRawX() - touchX);
                         params.y = lastY + (int) (event.getRawY() - touchY);
-                        wm.updateViewLayout(view, params); return true;
+                        wm.updateViewLayout(view, params);
+                        return true;
                     case MotionEvent.ACTION_UP:
-                        if (System.currentTimeMillis() - downTime < 200) view.performClick(); return true;
+                        if (System.currentTimeMillis() - downTime < 200) view.performClick();
+                        return true;
                 }
                 return false;
             }
@@ -161,15 +185,25 @@ public class FloatingService extends Service {
     }
 
     private void startMyForeground() {
-        String ID = "bfl_guard";
+        String CHANNEL_ID = "smilex_service";
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel c = new NotificationChannel(ID, "BFL Party", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "SMILE-X ABSOLUTE", NotificationManager.IMPORTANCE_LOW);
             NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-            if (nm != null) nm.createNotificationChannel(c);
-            startForeground(101, new Notification.Builder(this, ID).setContentTitle("Fl0WERk1ng Active").setSmallIcon(android.R.drawable.ic_lock_power_off).build());
+            if (nm != null) nm.createNotificationChannel(channel);
+            
+            Notification notification = new Notification.Builder(this, CHANNEL_ID)
+                    .setContentTitle("SMILE-X: Fl0WERk1ng")
+                    .setContentText("Service is active")
+                    .setSmallIcon(android.R.drawable.ic_menu_compass)
+                    .build();
+            startForeground(101, notification);
         }
     }
 
     @Override
-    public void onDestroy() { super.onDestroy(); if (isMinimized) wm.removeView(collapsedView); else wm.removeView(menuView); }
+    public void onDestroy() {
+        super.onDestroy();
+        if (isMinimized) wm.removeView(collapsedView);
+        else wm.removeView(menuView);
+    }
 }
