@@ -3,6 +3,7 @@ package com.smilex.absolute;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.widget.Toast;
@@ -13,35 +14,41 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // เช็คว่าเคยขออนุญาต Draw Overlays ไปหรือยัง
+        // 1. เช็คสิทธิ์ Overlay (วาดทับหน้าจอ)
         if (!Settings.canDrawOverlays(this)) {
-            // ถ้ายัง... ให้เด้งไปหน้าตั้งค่า
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:" + getPackageName()));
             startActivityForResult(intent, 1234);
             Toast.makeText(this, "กรุณาอนุญาตสิทธิ์วาดทับแอปอื่น", Toast.LENGTH_LONG).show();
         } else {
-            // ถ้าอนุญาตแล้ว... เริ่มการทำงานของเมนูทันที
-            startFloatingService();
+            handleStartService();
         }
+    }
+
+    private void handleStartService() {
+        Intent intent = new Intent(this, FloatingService.class);
+        
+        // 2. ใช้การเริ่มแบบ Foreground Service สำหรับ Android 8.0 ขึ้นไป
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+        
+        Toast.makeText(this, "Smile-X: กำลังเปิดเมนูมรกต...", Toast.LENGTH_SHORT).show();
+        finish();
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == 1234) {
             if (Settings.canDrawOverlays(this)) {
-                startFloatingService();
+                handleStartService();
             } else {
-                Toast.makeText(this, "สิทธิ์ถูกปฏิเสธ แอปไม่สามารถทำงานได้", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "สิทธิ์ถูกปฏิเสธ! ดาบมรกตออกจากฝักไม่ได้", Toast.LENGTH_SHORT).show();
                 finish();
             }
         }
-    }
-
-    private void startFloatingService() {
-        // สั่งเปิดเมนู FloatingService
-        startService(new Intent(this, FloatingService.class));
-        // ปิดหน้า MainActivity ทิ้งเพื่อไม่ให้จอดำค้างไว้ (เหลือแค่เมนู)
-        finish();
     }
 }
