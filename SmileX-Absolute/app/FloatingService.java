@@ -75,13 +75,14 @@ public class FloatingService extends Service {
 
     private void setupLogic(View v) {
         final EditText input = v.findViewById(R.id.editScript);
-        Button btnRun = v.findViewById(R.id.btnRun);
+        Button btnAttach = v.findViewById(R.id.btnAttach); // ปุ่มเชื่อมต่อ
+        Button btnRun = v.findViewById(R.id.btnRun);       // ปุ่มรันสคริปต์
         Button btnMin = v.findViewById(R.id.btnMinimize);
         Button btnClose = v.findViewById(R.id.btnClose);
 
         input.setText(savedScript);
 
-        // ระบบ Focus คีย์บอร์ด
+        // ระบบคีย์บอร์ดและ Focus
         input.setOnTouchListener((view, event) -> {
             if (event.getAction() == MotionEvent.ACTION_DOWN) {
                 params.flags = WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
@@ -93,7 +94,27 @@ public class FloatingService extends Service {
             return false;
         });
 
-        // --- ระบบสั่งการ BFL Party (V.2.714.1091) ---
+        // --- 1. ระบบ ATTACH (เชื่อมต่อหัวใจเกม) ---
+        btnAttach.setOnClickListener(view -> {
+            new Thread(() -> {
+                long luaPtr = NativeBridge.autoAttach();
+                
+                if (luaPtr != 0) {
+                    // ถ้าเจอเกม ให้ปลดล็อก Identity 8 ทันที
+                    NativeBridge.applyIdentity(luaPtr);
+                    
+                    v.post(() -> {
+                        Toast.makeText(this, "BFL: Attached! (Ptr: 0x" + Long.toHexString(luaPtr) + ")", Toast.LENGTH_SHORT).show();
+                        btnAttach.setText("READY");
+                        btnAttach.setEnabled(false); // ล็อกปุ่มไว้ถ้าติดแล้ว
+                    });
+                } else {
+                    v.post(() -> Toast.makeText(this, "BFL: Roblox not found! Open the game first.", Toast.LENGTH_SHORT).show());
+                }
+            }).start();
+        });
+
+        // --- 2. ระบบ RUN (ส่งคำสั่งมรกต) ---
         btnRun.setOnClickListener(view -> {
             final String code = input.getText().toString().trim();
             if (code.isEmpty()) return;
@@ -101,37 +122,25 @@ public class FloatingService extends Service {
 
             new Thread(() -> {
                 try {
-                    // 1. ค้นหาที่อยู่เกมอัตโนมัติ
-                    long luaPtr = NativeBridge.autoAttach();
-                    
-                    if (luaPtr == 0) {
-                        Log.e(TAG, "Roblox not found. Please open the game first!");
-                        return;
-                    }
-
-                    // 2. ปลดล็อกพลัง Identity 8
-                    NativeBridge.applyIdentity(luaPtr);
-
-                    // 3. ห่อหุ้มสคริปต์ด้วย pcall กันเกมหลุด
+                    // ห่อหุ้มสคริปต์ด้วย pcall ป้องกันเกมเด้ง
                     String finalCode = "local success, err = pcall(function() " + code + " end) if not success then warn('BFL Error: '..tostring(err)) end";
                     byte[] bytecode = finalCode.getBytes(StandardCharsets.UTF_8);
 
-                    // 4. สั่งพิพากษา
+                    // สั่งการผ่าน Native Bridge
                     NativeBridge.runBytecode(bytecode);
                     
+                    v.post(() -> Toast.makeText(this, "BFL: Script Executed!", Toast.LENGTH_SHORT).show());
                 } catch (Exception e) {
                     Log.e(TAG, "Execution Error", e);
                 }
             }).start();
 
-            // คืนค่า Focus หน้าจอปกติ
+            // คืนค่า Focus หน้าจอ
             params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
             wm.updateViewLayout(isMinimized ? collapsedView : menuView, params);
             input.clearFocus();
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             if (imm != null) imm.hideSoftInputFromWindow(input.getWindowToken(), 0);
-            
-            Toast.makeText(this, "BFL Party: คำสั่งถูกส่งออกไปแล้ว!", Toast.LENGTH_SHORT).show();
         });
 
         btnMin.setOnClickListener(view -> toggleView());
@@ -183,7 +192,7 @@ public class FloatingService extends Service {
             NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             if (nm != null) nm.createNotificationChannel(c);
             startForeground(101, new Notification.Builder(this, ID)
-                .setContentTitle("BFL Party: ระบบพร้อมทำงาน")
+                .setContentTitle("BFL Party: Active")
                 .setSmallIcon(android.R.drawable.ic_lock_power_off)
                 .build());
         }
@@ -192,7 +201,7 @@ public class FloatingService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (isMinimized) wm.removeView(collapsedView);
-        else wm.removeView(menuView);
+        if (isMinimized) { if (collapsedView.getParent() != null) wm.removeView(collapsedView); }
+        else { if (menuView.getParent() != null) wm.removeView(menuView); }
     }
 }
