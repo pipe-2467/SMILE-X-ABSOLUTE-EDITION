@@ -54,10 +54,20 @@
     </ScrollView>
 
     <Button
-        android:id="@+id/btnRun"
+        android:id="@+id/btnAttach"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="5dp"
+        android:backgroundTint="#0055AA"
+        android:text="ATTACH TO ROBLOX"
+        android:textColor="#FFFFFF" />
+
+    <Button
+        android:id="@+id/btnRun"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
         android:backgroundTint="#008800"
         android:text="EXECUTE" />
+
 </LinearLayout>
