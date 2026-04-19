@@ -19,7 +19,7 @@ allprojects {
 apply plugin: 'com.android.application'
 
 android {
-    // 1. อัปเกรด Compile SDK เป็น 34 เพื่อให้ทำงานบนเครื่องรุ่นใหม่ได้ลื่นขึ้น
+    // อัปเกรดเพื่อให้ทำงานบน Android รุ่นใหม่ๆ ได้ดีขึ้น
     compileSdkVersion 34
     buildToolsVersion "30.0.3"
     
@@ -28,22 +28,30 @@ android {
     defaultConfig {
         applicationId "com.smilex.absolute"
         minSdkVersion 21
-        // 2. ปรับ Target SDK เป็น 34 ป้องกันระบบแจ้งเตือนแอปเก่าและช่วยเรื่องการจัดการ RAM
         targetSdkVersion 34
         versionCode 1
         versionName "1.0-Absolute"
         
-        // ช่วยให้รันแอปที่มี Library เยอะๆ ได้โดยไม่หลุด (แก้ปัญหารวน)
+        // ช่วยให้รันแอปที่มี Library เยอะๆ ได้โดยไม่หลุด
         multiDexEnabled true
 
         externalNativeBuild {
             ndkBuild {
-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                // คัดเอาเฉพาะ ABI ที่มือถือไทยปี 2026 ใช้จริง (32-bit และ 64-bit)
+                abiFilters "armeabi-v7a", "arm64-v8a"
             }
         }
     }
 
-    // 3. ปรับจูนหน่วยความจำ (RAM) ให้แอปมีพื้นที่รัน Script เยอะขึ้น
+    // ระบบจัดการไฟล์ Library เพื่อให้ Android หา "ดาบมรกต" เจอแน่นอน
+    packagingOptions {
+        doNotStrip "*/armeabi-v7a/*.so"
+        doNotStrip "*/arm64-v8a/*.so"
+        pickFirst "lib/arm64-v8a/libsmilex.so"
+        pickFirst "lib/armeabi-v7a/libsmilex.so"
+    }
+
+    // ปรับจูนหน่วยความจำให้แอปมีพื้นที่รัน Script เยอะขึ้น
     dexOptions {
         javaMaxHeapSize "2g"
         preDexLibraries true
@@ -53,12 +61,14 @@ android {
         main {
             java.srcDirs = ['app']
             res.srcDirs = ['res']
+            jniLibs.srcDirs = ['libs'] 
             manifest.srcFile 'AndroidManifest.xml'
         }
     }
 
     externalNativeBuild {
         ndkBuild {
+            // ชี้พิกัดไปที่ไฟล์ตีดาบหลัก
             path = file("jni/Android.mk")
         }
     }
@@ -68,7 +78,6 @@ android {
         abortOnError false
     }
 
-    // เพิ่มประสิทธิภาพการประมวลผล
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
