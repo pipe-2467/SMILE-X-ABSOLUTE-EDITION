@@ -1,13 +1,19 @@
 package com.smilex.absolute;
 
+import android.util.Log;
+
 public class NativeBridge {
     static {
-        System.loadLibrary("smilex");
+        try {
+            System.loadLibrary("smilex");
+            Log.i("BFL_LOG", "Library smilex loaded!");
+        } catch (UnsatisfiedLinkError e) {
+            Log.e("BFL_LOG", "Error loading library: " + e.getMessage());
+        }
     }
 
-    // สแกนหาพิกัดเกมอัตโนมัติ (ไม่ต้องกรอกเอง)
     public static native long autoAttach();
-
     public static native void applyIdentity(long luaPtr);
-    public static native void runBytecode(byte[] data);
+    // เปลี่ยนจาก byte[] เป็น String
+    public static native void runBytecode(String code);
 }
