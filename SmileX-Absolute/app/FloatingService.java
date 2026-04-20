@@ -4,8 +4,8 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.os.IBinder;
@@ -15,7 +15,6 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -43,6 +42,7 @@ public class FloatingService extends Service {
     }
 
     private void setupWindowManager() {
+        // กำหนดประเภท Layout ตามเวอร์ชัน Android
         int layoutType = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) ? 
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : 
             WindowManager.LayoutParams.TYPE_PHONE;
@@ -55,22 +55,31 @@ public class FloatingService extends Service {
                 PixelFormat.TRANSLUCENT
         );
         params.gravity = Gravity.TOP | Gravity.LEFT;
-        params.x = 100; params.y = 100;
+        params.x = 100; 
+        params.y = 100;
     }
 
     private void initViews() {
+        // สร้าง View เมนูหลักจาก XML
         menuView = LayoutInflater.from(this).inflate(R.layout.floating_menu, null);
+        
+        // สร้างปุ่มตอนย่อเมนู (ปุ่ม BFL สีเขียว)
         collapsedView = new Button(this);
         collapsedView.setText("BFL");
-        collapsedView.setBackgroundColor(0xFF00FF00);
-        collapsedView.setTextColor(0xFF000000);
+        collapsedView.setBackgroundColor(0xFF00FF00); // สีเขียวมรกต
+        collapsedView.setTextColor(0xFF000000); // ตัวหนังสือสีดำ
 
         setupLogic(menuView);
         setupDrag(menuView);
         setupDrag(collapsedView);
 
         collapsedView.setOnClickListener(v -> toggleView());
-        try { wm.addView(menuView, params); } catch (Exception e) { Log.e(TAG, "Fail to add view", e); }
+        
+        try { 
+            wm.addView(menuView, params); 
+        } catch (Exception e) { 
+            Log.e(TAG, "Fail to add view", e); 
+        }
     }
 
     private void setupLogic(View v) {
@@ -82,34 +91,39 @@ public class FloatingService extends Service {
 
         input.setText(savedScript);
 
+        // ระบบ ATTACH (เจาะ LibRoblox)
         btnAttach.setOnClickListener(view -> {
+            btnAttach.setText("SCANNING...");
             new Thread(() -> {
-                Log.d(TAG, "Attempting to Attach...");
+                Log.d(TAG, "BFL: Attempting to Attach via PID Hunter...");
                 currentLuaPtr = NativeBridge.autoAttach();
                 
                 v.post(() -> {
                     if (currentLuaPtr != 0) {
-                        NativeBridge.applyIdentity(currentLuaPtr);
                         Toast.makeText(this, "BFL: Attached Success! 0x" + Long.toHexString(currentLuaPtr), Toast.LENGTH_SHORT).show();
                         btnAttach.setText("READY");
-                        btnAttach.setBackgroundColor(0xFF006400);
+                        btnAttach.setBackgroundColor(0xFF006400); // เขียวเข้ม
                     } else {
-                        Toast.makeText(this, "BFL: Attach Failed! (Roblox not found)", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "BFL: Not Found! กรุณาเข้าเกมก่อนกด", Toast.LENGTH_SHORT).show();
+                        btnAttach.setText("ATTACH");
+                        btnAttach.setBackgroundColor(Color.RED);
                     }
                 });
             }).start();
         });
 
+        // ระบบ EXECUTE (รันสคริปต์)
         btnRun.setOnClickListener(view -> {
             final String code = input.getText().toString().trim();
             if (code.isEmpty()) return;
             if (currentLuaPtr == 0) {
-                Toast.makeText(this, "กรุณากด ATTACH ก่อน!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "ดาบมรกตยังไม่ได้ ATTACH!", Toast.LENGTH_SHORT).show();
                 return;
             }
             savedScript = code;
 
             new Thread(() -> {
+                // ครอบ pcall เพื่อกันเกมเด้งเวลาสคริปต์ผิด
                 String finalCode = "local success, err = pcall(function() " + code + " end) if not success then warn('BFL Error: '..tostring(err)) end";
                 NativeBridge.runBytecode(finalCode);
                 v.post(() -> Toast.makeText(this, "BFL: Execute Sent!", Toast.LENGTH_SHORT).show());
@@ -121,23 +135,31 @@ public class FloatingService extends Service {
     }
 
     private void toggleView() {
-        if (!isMinimized) { wm.removeView(menuView); wm.addView(collapsedView, params); }
-        else { wm.removeView(collapsedView); wm.addView(menuView, params); }
-        params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
-        wm.updateViewLayout(isMinimized ? menuView : collapsedView, params);
+        if (!isMinimized) { 
+            wm.removeView(menuView); 
+            wm.addView(collapsedView, params); 
+        } else { 
+            wm.removeView(collapsedView); 
+            wm.addView(menuView, params); 
+        }
         isMinimized = !isMinimized;
     }
 
     private void setupDrag(View v) {
         v.setOnTouchListener(new View.OnTouchListener() {
-            private int lastX, lastY; private float touchX, touchY; private long downTime;
+            private int lastX, lastY; 
+            private float touchX, touchY; 
+            private long downTime;
+
             @Override
             public boolean onTouch(View view, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
                         downTime = System.currentTimeMillis();
-                        lastX = params.x; lastY = params.y;
-                        touchX = event.getRawX(); touchY = event.getRawY();
+                        lastX = params.x; 
+                        lastY = params.y;
+                        touchX = event.getRawX(); 
+                        touchY = event.getRawY();
                         return true;
                     case MotionEvent.ACTION_MOVE:
                         params.x = lastX + (int) (event.getRawX() - touchX);
@@ -145,6 +167,7 @@ public class FloatingService extends Service {
                         wm.updateViewLayout(view, params);
                         return true;
                     case MotionEvent.ACTION_UP:
+                        // ถ้ากดสั้นๆ ให้ถือว่าเป็น Click
                         if (System.currentTimeMillis() - downTime < 200) view.performClick();
                         return true;
                 }
@@ -161,7 +184,7 @@ public class FloatingService extends Service {
             if (nm != null) nm.createNotificationChannel(c);
             startForeground(101, new Notification.Builder(this, ID)
                 .setContentTitle("BFL Party: Active")
-                .setSmallIcon(android.R.drawable.ic_lock_power_off)
+                .setSmallIcon(android.R.drawable.ic_menu_compass) // เปลี่ยนไอคอนได้ตามชอบ
                 .build());
         }
     }
@@ -169,7 +192,10 @@ public class FloatingService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (isMinimized) { if (collapsedView.getParent() != null) wm.removeView(collapsedView); }
-        else { if (menuView.getParent() != null) wm.removeView(menuView); }
+        if (isMinimized) { 
+            if (collapsedView.getParent() != null) wm.removeView(collapsedView); 
+        } else { 
+            if (menuView.getParent() != null) wm.removeView(menuView); 
+        }
     }
 }
