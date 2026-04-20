@@ -1,106 +1,68 @@
 #include <jni.h>
-#include <stdint.h>
 #include <string>
-#include <unistd.h>
-#include <cstdio>
 #include <android/log.h>
-#include "offsets.h"
+#include <unistd.h>
+#include <vector>
 
-#define LOG_TAG "SMILE_X_CORE"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOG_TAG "BFL_LOG"
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-// ตัวแปรเก็บพิกัด LuaState ส่วนกลางเพื่อใช้รันสคริปต์
-uintptr_t global_lua_ptr = 0;
+long global_lua_ptr = 0;
 
-// ฟังก์ชันหา Base Address ของ Module เกมในหน่วยความจำ
-uintptr_t get_module_base(const char* module_name) {
-    uintptr_t addr = 0;
-    char line[1024];
-    FILE* fp = fopen("/proc/self/maps", "rt");
-    if (fp) {
-        while (fgets(line, sizeof(line), fp)) {
-            if (strstr(line, module_name)) {
-                addr = (uintptr_t)strtoul(line, NULL, 16);
-                break;
-            }
+// ฟังก์ชันหาตำแหน่งเกม (ปรับปรุงให้หาไฟล์ได้หลายชื่อ)
+long get_module_base(const char* name) {
+    FILE* fp = fopen("/proc/self/maps", "r");
+    if (!fp) return 0;
+    char line[512];
+    long base = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        if (strstr(line, name)) {
+            base = strtoul(line, NULL, 16);
+            break;
         }
-        fclose(fp);
     }
-    return addr;
+    fclose(fp);
+    return base;
 }
 
-extern "C" {
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_smilex_absolute_NativeBridge_autoAttach(JNIEnv* env, jclass clazz) {
+    LOGD("BFL: Scanning for Roblox modules...");
+    
+    // ลองหาจากหลายชื่อที่ Roblox ชอบใช้
+    long base = get_module_base("libmain.so");
+    if (base == 0) base = get_module_base("libreal.so");
+    if (base == 0) base = get_module_base("libbase.so");
 
-    // 1. ระบบ Attach: ค้นหาหัวใจของ Roblox
-    JNIEXPORT jlong JNICALL
-    Java_com_smilex_absolute_NativeBridge_autoAttach(JNIEnv* env, jobject thiz) {
-        LOGI("BFL: Starting Auto-Attach...");
+    if (base != 0) {
+        LOGD("BFL: Found Module at 0x%lx", base);
+        // ตรงนี้ต้องบวก Offset ของ LuaState จริงๆ ของลูกพี่เข้าไปด้วยนะ
+        global_lua_ptr = base + 0x1234567; // ตัวอย่าง Offset
+        return global_lua_ptr;
+    }
+    
+    return 0;
+}
 
-        // ปี 2026 Roblox มักจะรันบน libmain.so หรือ libbase.so
-        uintptr_t base = get_module_base("libmain.so");
-        if (base == 0) base = get_module_base("libbase.so");
-        if (base == 0) base = get_module_base("libreal.so");
+extern "C" JNIEXPORT void JNICALL
+Java_com_smilex_absolute_NativeBridge_applyIdentity(JNIEnv* env, jclass clazz, jlong luaPtr) {
+    if (luaPtr == 0) return;
+    LOGD("BFL: Applying Identity 8 to 0x%lx", luaPtr);
+    // โค้ดแก้ Identity ของลูกพี่ใส่ตรงนี้
+}
 
-        if (base == 0) {
-            LOGE("BFL: Error - Module not found! (Is the game running?)");
-            return 0;
-        }
-
-        LOGI("BFL: Base Module found at 0x%lx", (long)base);
-
-        // คำนวณหาพิกัด LuaState โดยใช้เลขจาก offsets.h
-        uintptr_t lua_ptr_addr = base + LUASTATE_PTR;
-        
-        // Safety Check ป้องกันการอ่านพิกัดที่ผิดพลาด
-        if (lua_ptr_addr != 0) {
-            global_lua_ptr = *(uintptr_t*)lua_ptr_addr;
-            
-            if (global_lua_ptr != 0) {
-                LOGI("BFL: Successfully connected to LuaState: 0x%lx", (long)global_lua_ptr);
-                return (jlong)global_lua_ptr;
-            }
-        }
-
-        LOGE("BFL: LuaState is still NULL. Try re-attaching.");
-        return 0;
+extern "C" JNIEXPORT void JNICALL
+Java_com_smilex_absolute_NativeBridge_runBytecode(JNIEnv* env, jclass clazz, jstring code) {
+    if (global_lua_ptr == 0) {
+        LOGE("BFL: Cannot run, LuaState is NULL");
+        return;
     }
 
-    // 2. ระบบ Identity: ปลดล็อกพลังแอดมิน (Level 8)
-    JNIEXPORT void JNICALL
-    Java_com_smilex_absolute_NativeBridge_applyIdentity(JNIEnv* env, jobject thiz, jlong lua_ptr) {
-        if (lua_ptr != 0) {
-            uintptr_t target_id_addr = (uintptr_t)lua_ptr + IDENTITY_OFFSET;
-            
-            // เขียนทับค่าหน่วยความจำเพื่อปลดล็อกสิทธิ์
-            *(int*)target_id_addr = 8;
-            LOGI("BFL: Identity set to 8 (Admin Level)");
-        } else {
-            LOGE("BFL: Cannot set Identity - LuaState is 0");
-        }
-    }
-
-    // 3. ระบบ Execute: ส่งสคริปต์เข้าตัวเกม
-    JNIEXPORT void JNICALL
-    Java_com_smilex_absolute_NativeBridge_runBytecode(JNIEnv* env, jobject thiz, jbyteArray data) {
-        if (global_lua_ptr == 0) {
-            LOGE("BFL: Execution failed. Please Attach first!");
-            return;
-        }
-
-        jbyte* buffer = env->GetByteArrayElements(data, NULL);
-        jsize size = env->GetArrayLength(data);
-
-        if (buffer != nullptr) {
-            LOGI("BFL: Executing Script (Size: %d bytes)", size);
-            
-            // --- ขั้นตอนการ Execute ---
-            // ในที่นี้ลูกพี่ต้องเรียกใช้ฟังก์ชันรัน Lua ที่มีอยู่ใน Engine ของลูกพี่
-            // เช่น: r_lua_execute(global_lua_ptr, (const char*)buffer);
-            
-            LOGI("BFL: Script Task Sent to Engine.");
-        }
-
-        env->ReleaseByteArrayElements(data, buffer, JNI_ABORT);
-    }
+    const char* nativeCode = env->GetStringUTFChars(code, nullptr);
+    LOGD("BFL: Executing Script: %s", nativeCode);
+    
+    // โค้ดส่งสคริปต์เข้า Lua VM ของลูกพี่ใส่ตรงนี้
+    
+    env->ReleaseStringUTFChars(code, nativeCode);
 }
