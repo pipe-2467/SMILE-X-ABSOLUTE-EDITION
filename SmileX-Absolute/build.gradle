@@ -4,7 +4,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        // ใช้ Gradle Plugin ที่เสถียรสำหรับโปรเจกต์แนวนี้
+        // ใช้ Gradle Plugin เวอร์ชันที่เสถียรและนิยมที่สุดสำหรับงาน Native
         classpath 'com.android.tools.build:gradle:4.2.2'
     }
 }
@@ -19,10 +19,11 @@ allprojects {
 apply plugin: 'com.android.application'
 
 android {
-    // อัปเกรดเพื่อให้ทำงานบน Android รุ่นใหม่ๆ ได้ดีขึ้น
+    // กำหนด SDK ให้รองรับ Android รุ่นใหม่ๆ (ปี 2026)
     compileSdkVersion 34
     buildToolsVersion "30.0.3"
-    
+
+    // ระบุเวอร์ชัน NDK ที่แน่นอนเพื่อความเสถียรในการ Compile C++
     ndkVersion "21.4.7075529"
 
     defaultConfig {
@@ -31,53 +32,77 @@ android {
         targetSdkVersion 34
         versionCode 1
         versionName "1.0-Absolute"
-        
-        // ช่วยให้รันแอปที่มี Library เยอะๆ ได้โดยไม่หลุด
+
+        // ป้องกันแอปเด้งเมื่อมีคลาสหรือไลบรารีจำนวนมาก
         multiDexEnabled true
 
+        // --- ส่วนการตั้งค่า Native Build (หัวใจของดาบมรกต) ---
         externalNativeBuild {
-            ndkBuild {
-                // คัดเอาเฉพาะ ABI ที่มือถือไทยปี 2026 ใช้จริง (32-bit และ 64-bit)
+            // เลือกใช้ CMake เป็นหลักในการ Build ปัจจุบัน
+            cmake {
+                // กำหนด Flag เพื่อให้ C++ รองรับฟังก์ชันทันสมัยและไม่ Error ง่าย
+                cppFlags "-std=c++11 -frtti -fexceptions"
+                // คัดเฉพาะสถาปัตยกรรมที่ใช้จริง (32-bit และ 64-bit)
                 abiFilters "armeabi-v7a", "arm64-v8a"
             }
+            
+            /* // ส่วนนี้คือการตั้งค่าสำหรับ ndk-build (เพื่อนเก่า) 
+            // หากต้องการสลับไปใช้ ให้เอาคอมเมนต์ออกและปิดส่วน cmake ด้านบน
+            ndkBuild {
+                abiFilters "armeabi-v7a", "arm64-v8a"
+            }
+            */
         }
     }
 
-    // ระบบจัดการไฟล์ Library เพื่อให้ Android หา "ดาบมรกต" เจอแน่นอน
+    // ระบบจัดการไฟล์ Library เพื่อให้ตัวเกมหาไฟล์ .so เจอแน่นอน
     packagingOptions {
+        // ห้ามทำการ Strip ไฟล์ .so เพื่อให้ Debug ง่ายและรักษาความสมบูรณ์ของโค้ด
         doNotStrip "*/armeabi-v7a/*.so"
         doNotStrip "*/arm64-v8a/*.so"
+        
+        // กรณีมีไฟล์ซ้ำ ให้เลือกไฟล์หลักจากโฟลเดอร์ของเราก่อน
         pickFirst "lib/arm64-v8a/libsmilex.so"
         pickFirst "lib/armeabi-v7a/libsmilex.so"
     }
 
-    // ปรับจูนหน่วยความจำให้แอปมีพื้นที่รัน Script เยอะขึ้น
-    dexOptions {
-        javaMaxHeapSize "2g"
-        preDexLibraries true
-    }
-
+    // กำหนดตำแหน่งไฟล์ Source Code ให้ตรงตามโครงสร้างโปรเจกต์
     sourceSets {
         main {
-            java.srcDirs = ['app']
-            res.srcDirs = ['res']
-            jniLibs.srcDirs = ['libs'] 
+            java.srcDirs = ['app']          // โฟลเดอร์โค้ด Java
+            res.srcDirs = ['res']           // โฟลเดอร์ Resource
+            jniLibs.srcDirs = ['libs']      // โฟลเดอร์เก็บ .so ที่ Compile เสร็จแล้ว
             manifest.srcFile 'AndroidManifest.xml'
         }
     }
 
+    // --- ส่วนการเลือกเครื่องยนต์ Build หลัก ---
     externalNativeBuild {
-        ndkBuild {
-            // ชี้พิกัดไปที่ไฟล์ตีดาบหลัก
-            path = file("jni/Android.mk")
+        // ใช้ CMakeLists.txt เป็นตัวตีดาบหลัก
+        cmake {
+            path file("jni/CMakeLists.txt")
         }
+
+        /* // หากต้องการกลับไปใช้เพื่อนเก่า (Android.mk) ให้สลับมาใช้ส่วนนี้
+        ndkBuild {
+            path file("jni/Android.mk")
+        }
+        */
+    }
+
+    // ตั้งค่าจูนหน่วยความจำ (Heap) เพื่อให้คอมไพล์สคริปต์หนักๆ ผ่าน
+    dexOptions {
+        javaMaxHeapSize "2g"
+        preDexLibraries true
     }
     
+    // ข้ามการตรวจเช็คจุกจิกเพื่อความรวดเร็วในการ Build
     lintOptions {
         checkReleaseBuilds false
         abortOnError false
     }
 
+    // รองรับ Java 8 เพื่อให้ NativeBridge ทำงานร่วมกับ C++ ได้ลื่นไหล
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
