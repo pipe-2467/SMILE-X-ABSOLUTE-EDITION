@@ -1,11 +1,8 @@
 apply plugin: 'com.android.application'
 
 android {
-    // กำหนด SDK ล่าสุดสำหรับปี 2026
     compileSdkVersion 34
     buildToolsVersion "30.0.3"
-
-    // ระบุเวอร์ชัน NDK ที่ลูกพี่มีให้ชัดเจน
     ndkVersion "21.4.7075529"
 
     defaultConfig {
@@ -14,68 +11,46 @@ android {
         targetSdkVersion 34
         versionCode 1
         versionName "1.0-Absolute"
-        
-        // บังคับให้รองรับ Multidex เพราะเราอาจจะมี Library เยอะในอนาคต
         multiDexEnabled true
 
-        // การตั้งค่าสำหรับการ Build C++ (CMake)
         externalNativeBuild {
             cmake {
-                // ใส่ Flags ให้ครบ: รองรับ C++11, เปิด Exception, และ RTTI
                 cppFlags "-std=c++11 -frtti -fexceptions -D_GNU_SOURCE"
-                // เน้นเฉพาะ CPU ที่เราจะรันจริงบนมือถือ
                 abiFilters "armeabi-v7a", "arm64-v8a"
-                // กำหนด Arguments เสริมสำหรับ CMake
-                arguments "-DANDROID_STL=c++_static"
             }
         }
     }
 
-    // ระบบจัดการทรัพยากรและการ Compile (เพื่อให้แอปเร็วและไม่เด้ง)
-    dexOptions {
-        javaMaxHeapSize "2g" // ให้แรม Gradle เยอะๆ จะได้ไม่พังตอนคอมไพล์
-        preDexLibraries true
-        jumboMode true
-    }
-
-    // กำหนดโครงสร้างโฟลเดอร์ให้ตรงกับความต้องการของโปรเจกต์
+    // --- ส่วนที่แก้ไขเพื่อโครงสร้างไฟล์ของลูกพี่ ---
     sourceSets {
         main {
-            java.srcDirs = ['app']          // โฟลเดอร์โค้ด Java
-            res.srcDirs = ['res']           // โฟลเดอร์ Resource
-            jniLibs.srcDirs = ['libs']      // โฟลเดอร์เก็บ .so
+            // ในเมื่อไฟล์อยู่ที่ app/NativeBridge.java โดยตรง 
+            // เราต้องกำหนดให้ 'app' คือ root ของ java
+            java.srcDirs = ['app'] 
+            
+            // ตรวจสอบตำแหน่งโฟลเดอร์ res และ jni ให้ตรงด้วยครับ
+            res.srcDirs = ['res'] 
+            jniLibs.srcDirs = ['libs']
             manifest.srcFile 'AndroidManifest.xml'
         }
     }
 
-    // เชื่อมต่อกับตัวตีดาบ (CMakeLists.txt)
     externalNativeBuild {
         cmake {
+            // พาธไฟล์ CMakeLists.txt ต้องตรงกับที่วางไว้จริง
             path file("jni/CMakeLists.txt")
         }
     }
 
-    // การจัดการความปลอดภัยและไฟล์ .so ใน APK
     packagingOptions {
         doNotStrip "*/armeabi-v7a/*.so"
         doNotStrip "*/arm64-v8a/*.so"
-        resources {
-            excludes += '/META-INF/*'
-            pickFirsts += 'lib/armeabi-v7a/libsmilex.so'
-            pickFirsts += 'lib/arm64-v8a/libsmilex.so'
-        }
+        pickFirst "lib/arm64-v8a/libsmilex.so"
+        pickFirst "lib/armeabi-v7a/libsmilex.so"
     }
 
-    // ตั้งค่า Java Compatibility สำหรับ NativeBridge
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
-    }
-
-    // ข้ามการตรวจสอบจุกจิกเพื่อให้ Build ผ่านง่ายขึ้น
-    lintOptions {
-        checkReleaseBuilds false
-        abortOnError false
-        disable 'MissingTranslation'
     }
 }
